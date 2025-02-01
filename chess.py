@@ -250,25 +250,23 @@ class Game:
         active_piece = 0
         while run:
             pos = pygame.mouse.get_pos()
-            # buttons = pygame.mouse.get_pressed()
-            
             clock.tick(60)
+            
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     print(pos)
-                    for piece in self.turn: # make for all
-                        if type(piece) in types:
-                            if piece.rect.collidepoint(pos):
-                                if active_piece != 0:
-                                    active_piece.active = False
-                                    piece.active = True
-                                    active_piece = piece
-                                    print('ACTIVE')
-                                else:
-                                    piece.active = True
-                                    active_piece = piece
+                    for piece in self.turn:
+                        if piece.rect.collidepoint(pos):
+                            if active_piece != 0:
+                                active_piece.active = False
+                                piece.active = True
+                                active_piece = piece
+                                print('ACTIVE')
+                            else:
+                                piece.active = True
+                                active_piece = piece
                     
                     if active_piece != 0 and self.mouse_to_square(pos) in active_piece.legal_moves(self.board):
                         active_piece.move(self.board, self.mouse_to_square(pos))
