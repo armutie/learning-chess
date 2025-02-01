@@ -24,7 +24,7 @@ def show_board(board):
 class Piece:
     def __init__(self, color, position, image):
         self.color = color
-        self.image = pygame.image.load(image)
+        self.image = image
         self.position = position
         self.rect = self.image.get_rect()
         self.active = False
@@ -50,36 +50,89 @@ class Piece:
         current_position = self.position
         row, column = move
         print(row, column)
-        show_board(board)
         board[row][column] = self
-        print("\n")
-        show_board(board)
+
         board[current_position[0]][current_position[1]] = None
         self.position = [row, column]
+        show_board(board)
+        print("\n")
 
 
 class Rook(Piece):
     def __init__(self, color, position, image):
         super().__init__(color, position, image)
 
+    def legal_moves(self, board):
+        legal = []
+        row, column = self.position
+        positions = [[0, 1], [0, -1], [-1, 0], [1, 0]]
+        for vector in positions:
+            current_row = row + vector[0]
+            current_column = column + vector[1]
+
+            while 0 <= current_row <= 7 and 0 <= current_column <= 7:
+                if board[current_row][current_column] != None:
+                    break
+                else:
+                    legal.append([current_row, current_column])
+                    current_row += vector[0]
+                    current_column += vector[1]
+
+        return legal
+
 class Knight(Piece):
     def __init__(self, color, position, image):
         super().__init__(color, position, image)
 
     def legal_moves(self, board):
-        pass
+        legal = []
+        row, column = self.position
+        positions = [[row-2, column+1], [row-2, column-1], [row+2, column+1], [row+2, column-1], [row-1, column-2], [row+1, column-2], [row-1, column+2], [row+1, column+2]]
+        for position in positions:
+            if 0 <= position[0] <= 7 and 0 <= position[1] <= 7 and board[position[0]][position[1]] == None:
+                legal.append(position)
+        
+        return legal
+
 
 class Bishop(Piece):
     def __init__(self, color, position, image):
         super().__init__(color, position, image)
 
-class Queen(Piece):
-    def __init__(self, color, position, image):
-        super().__init__(color, position, image)
+    def legal_moves(self, board):
+        legal = []
+        row, column = self.position
+        positions = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
+        for vector in positions:
+            current_row = row + vector[0]
+            current_column = column + vector[1]
+
+            while 0 <= current_row <= 7 and 0 <= current_column <= 7:
+                if board[current_row][current_column] != None:
+                    break
+                else:
+                    legal.append([current_row, current_column])
+                    current_row += vector[0]
+                    current_column += vector[1]
+
+        return legal
 
 class King(Piece):
     def __init__(self, color, position, image):
         super().__init__(color, position, image)
+
+    def legal_moves(self, board):
+        legal = []
+        row, column = self.position
+        positions = [[0, 1], [-1, 1], [1, 0], [-1, -1], [0, -1], [1, -1], [-1, 0], [1, 1]]
+        for position in positions:
+            current_row = row + position[0]
+            current_column = column + position[1]
+
+            if 0 <= current_row <= 7 and 0 <= current_column <= 7:
+                if board[current_row][current_column] == None:
+                    legal.append([current_row, current_column])
+        return legal
 
 class Pawn(Piece):
     def __init__(self, color, position, image):
@@ -92,33 +145,69 @@ class Pawn(Piece):
         if self.color == "white":
             if board[row-1][column] == None:
                 legal.append([row-1, column])
-            if self.first_move and board[row-2][column] == None:
-                legal.append([row-2, column])
+                if self.first_move and board[row-2][column] == None:
+                    legal.append([row-2, column])
         else:
             if board[row+1][column] == None:
                 legal.append([row+1, column])
-            if self.first_move and board[row+2][column] == None:
-                legal.append([row+2, column])
+                if self.first_move and board[row+2][column] == None:
+                    legal.append([row+2, column])
         return legal
     
     def move(self, board, move):
         super().move(board, move)
         self.first_move = False
 
-# More efficient method coming
-b_p = [Rook("black", [0, 0], "imgs/black_rook.png"), Knight("black", [0, 1], "imgs/black_knight.png"), 
-       Bishop("black", [0, 2], "imgs/black_bishop.png"), Queen("black", [0, 3], "imgs/black_queen.png"), 
-       King("black", [0, 4], "imgs/black_king.png"), Bishop("black", [0, 5], "imgs/black_bishop.png"), 
-       Knight("black", [0, 6], "imgs/black_knight.png"), Rook("black", [0, 7], "imgs/black_rook.png")]
-for row in range(8):
-    b_p.append(Pawn("black", [1, row], "imgs/black_pawn.png"))
+class Queen(Piece):
+    def __init__(self, color, position, image):
+        super().__init__(color, position, image)
 
-w_p = [Rook("white", [7, 0], "imgs/white_rook.png"), Knight("white", [7, 1], "imgs/white_knight.png"), 
-       Bishop("white", [7, 2], "imgs/white_bishop.png"), Queen("white", [7, 3], "imgs/white_queen.png"), 
-       King("white", [7, 4], "imgs/white_king.png"), Bishop("white", [7, 5], "imgs/white_bishop.png"), 
-       Knight("white", [7, 6], "imgs/white_knight.png"), Rook("white", [7, 7], "imgs/white_rook.png")]
+    def legal_moves(self, board):
+        legal = []
+        row, column = self.position
+        positions = [[-1, -1], [-1, 1], [1, -1], [1, 1], [0, 1], [0, -1], [-1, 0], [1, 0]]
+        for vector in positions:
+            current_row = row + vector[0]
+            current_column = column + vector[1]
+
+            while 0 <= current_row <= 7 and 0 <= current_column <= 7:
+                if board[current_row][current_column] != None:
+                    break
+                else:
+                    legal.append([current_row, current_column])
+                    current_row += vector[0]
+                    current_column += vector[1]
+        
+        return legal
+
+black_rook = pygame.image.load("imgs/black_rook.png")
+black_knight = pygame.image.load("imgs/black_knight.png")
+black_bishop = pygame.image.load("imgs/black_bishop.png")
+black_queen = pygame.image.load("imgs/black_queen.png")
+black_king = pygame.image.load("imgs/black_king.png")
+black_pawn = pygame.image.load("imgs/black_pawn.png")
+
+white_rook = pygame.image.load("imgs/white_rook.png")
+white_knight = pygame.image.load("imgs/white_knight.png")
+white_bishop = pygame.image.load("imgs/white_bishop.png")
+white_queen = pygame.image.load("imgs/white_queen.png")
+white_king = pygame.image.load("imgs/white_king.png")
+white_pawn = pygame.image.load("imgs/white_pawn.png")
+
+# More efficient method coming
+b_p = [Rook("black", [0, 0], black_rook), Knight("black", [0, 1], black_knight), 
+       Bishop("black", [0, 2], black_bishop), Queen("black", [0, 3], black_queen), 
+       King("black", [0, 4], black_king), Bishop("black", [0, 5], black_bishop), 
+       Knight("black", [0, 6], black_knight), Rook("black", [0, 7], black_rook)]
 for row in range(8):
-    w_p.append(Pawn("white", [6, row], "imgs/white_pawn.png"))
+    b_p.append(Pawn("black", [1, row], black_pawn))
+
+w_p = [Rook("white", [7, 0], white_rook), Knight("white", [7, 1], white_knight), 
+       Bishop("white", [7, 2], white_bishop), Queen("white", [7, 3], white_queen), 
+       King("white", [7, 4], white_king), Bishop("white", [7, 5], white_bishop), 
+       Knight("white", [7, 6], white_knight), Rook("white", [7, 7], white_rook)]
+for row in range(8):
+    w_p.append(Pawn("white", [6, row], white_pawn))
 
 types = [Rook, Knight, Bishop, Queen, King, Pawn]
 
@@ -170,7 +259,7 @@ class Game:
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     print(pos)
                     for piece in self.turn: # make for all
-                        if type(piece) == Pawn:
+                        if type(piece) in types:
                             if piece.rect.collidepoint(pos):
                                 if active_piece != 0:
                                     active_piece.active = False
