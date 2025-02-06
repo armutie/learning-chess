@@ -1,5 +1,8 @@
 import pygame
 
+TILE_SIZE = 64
+FPS = 60
+
 # For testing purposes
 def show_board(board):
     for row in board:
@@ -33,8 +36,8 @@ class Piece:
 
     def draw(self, window):
         row, column = self.position
-        self.rect.x = column * 64
-        self.rect.y = row * 64
+        self.rect.x = column * TILE_SIZE
+        self.rect.y = row * TILE_SIZE
 
         window.blit(self.image, (self.rect.x, self.rect.y))
     
@@ -43,12 +46,12 @@ class Piece:
 
     def draw_legal(self, window, squares):
         for square in squares["moves"]:
-            y = square[0] * 64
-            x = square[1] * 64
+            y = square[0] * TILE_SIZE
+            x = square[1] * TILE_SIZE
             window.blit(self.legal_image, (x, y))
         for square in squares["captures"]:
-            y = square[0] * 64
-            x = square[1] * 64
+            y = square[0] * TILE_SIZE
+            x = square[1] * TILE_SIZE
             window.blit(self.capture_image, (x, y))
 
     def move(self, board, move):
@@ -171,9 +174,9 @@ class Pawn(Piece):
                 if self.first_move and board[row-2][column] == None:
                     legal["moves"].append([row-2, column])
 
-            if board[row-1][column-1] != None and board[row-1][column-1].color != self.color:
+            if (column-1) >= 0 and board[row-1][column-1] != None and board[row-1][column-1].color != self.color:
                     legal['captures'].append([row-1, column-1])
-            if board[row-1][column+1] != None and board[row-1][column+1].color != self.color:
+            if (column+1) <= 7 and board[row-1][column+1] != None and board[row-1][column+1].color != self.color:
                     legal['captures'].append([row-1, column+1])
         
         else:
@@ -277,8 +280,8 @@ class Game:
 
     def mouse_to_square(self, pos):
         x, y = pos
-        column = int(x / 64)
-        row = int(y / 64)
+        column = int(x / TILE_SIZE)
+        row = int(y / TILE_SIZE)
         #if column % 64 != 0 and row % 0 != 0:
         return [row, column]
 
@@ -287,7 +290,7 @@ class Game:
         active_piece = 0
         while run:
             pos = pygame.mouse.get_pos()
-            clock.tick(60)
+            clock.tick(FPS)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -307,14 +310,26 @@ class Game:
                     
                     if active_piece != 0:
                         legals = active_piece.legal_moves(self.board)
-                        if self.mouse_to_square(pos) in legals["moves"]:
+                        move = self.mouse_to_square(pos)
+                        if move in legals["moves"] or move in legals["captures"]:
+                            if move in legals['moves']:
+                                if self.turn == w_p:
+                                    self.turn = b_p
+                                else:
+                                    self.turn = w_p
+
+                            elif move in legals["captures"]:
+                                captured = self.board[move[0]][move[1]]
+                                if self.turn == w_p:
+                                    b_p.remove(captured)
+                                    self.turn = b_p
+                                else:
+                                    w_p.remove(captured)
+                                    self.turn = w_p
+
                             active_piece.move(self.board, self.mouse_to_square(pos))
                             active_piece.active = False
                             active_piece = 0
-                            if self.turn == w_p:
-                                self.turn = b_p
-                            else:
-                                self.turn = w_p
 
             self.redraw_board(window)
 
@@ -330,3 +345,5 @@ clock = pygame.time.Clock()
 x.play(WIN)
 
 pygame.quit()
+print(w_p)
+print(b_p)
