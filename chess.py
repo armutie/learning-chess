@@ -345,5 +345,5 @@ clock = pygame.time.Clock()
 x.play(WIN)
 
 pygame.quit()
-print(w_p)
-print(b_p)
+print(len(w_p))
+print(len(b_p))
