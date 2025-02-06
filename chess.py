@@ -29,6 +29,7 @@ class Piece:
         self.rect = self.image.get_rect()
         self.active = False
         self.legal_image = pygame.image.load("imgs/legal_move.png")
+        self.capture_image = pygame.image.load("imgs/capturable.png")
 
     def draw(self, window):
         row, column = self.position
@@ -41,10 +42,14 @@ class Piece:
         pass
 
     def draw_legal(self, window, squares):
-        for square in squares:
+        for square in squares["moves"]:
             y = square[0] * 64
             x = square[1] * 64
             window.blit(self.legal_image, (x, y))
+        for square in squares["captures"]:
+            y = square[0] * 64
+            x = square[1] * 64
+            window.blit(self.capture_image, (x, y))
 
     def move(self, board, move):
         current_position = self.position
@@ -63,7 +68,8 @@ class Rook(Piece):
         super().__init__(color, position, image)
 
     def legal_moves(self, board):
-        legal = []
+        legal = {"moves": [],
+                "captures": []}
         row, column = self.position
         positions = [[0, 1], [0, -1], [-1, 0], [1, 0]]
         for vector in positions:
@@ -72,9 +78,11 @@ class Rook(Piece):
 
             while 0 <= current_row <= 7 and 0 <= current_column <= 7:
                 if board[current_row][current_column] != None:
+                    if board[current_row][current_column].color != self.color:
+                        legal["captures"].append([current_row, current_column]) 
                     break
                 else:
-                    legal.append([current_row, current_column])
+                    legal['moves'].append([current_row, current_column])
                     current_row += vector[0]
                     current_column += vector[1]
 
@@ -85,13 +93,20 @@ class Knight(Piece):
         super().__init__(color, position, image)
 
     def legal_moves(self, board):
-        legal = []
+        legal = {"moves": [],
+                "captures": []}
         row, column = self.position
-        positions = [[row-2, column+1], [row-2, column-1], [row+2, column+1], [row+2, column-1], [row-1, column-2], [row+1, column-2], [row-1, column+2], [row+1, column+2]]
+        positions = [[row-2, column+1], [row-2, column-1], [row+2, column+1], [row+2, column-1], 
+                     [row-1, column-2], [row+1, column-2], [row-1, column+2], [row+1, column+2]]
         for position in positions:
-            if 0 <= position[0] <= 7 and 0 <= position[1] <= 7 and board[position[0]][position[1]] == None:
-                legal.append(position)
-        
+            if 0 <= position[0] <= 7 and 0 <= position[1] <= 7:
+                square = board[position[0]][position[1]]
+                if square != None:
+                    if square.color != self.color:
+                        legal['captures'].append(position)
+                else:
+                    legal['moves'].append(position)
+            
         return legal
 
 
@@ -100,7 +115,8 @@ class Bishop(Piece):
         super().__init__(color, position, image)
 
     def legal_moves(self, board):
-        legal = []
+        legal = {"moves": [],
+                "captures": []}
         row, column = self.position
         positions = [[-1, -1], [-1, 1], [1, -1], [1, 1]]
         for vector in positions:
@@ -109,9 +125,11 @@ class Bishop(Piece):
 
             while 0 <= current_row <= 7 and 0 <= current_column <= 7:
                 if board[current_row][current_column] != None:
+                    if board[current_row][current_column].color != self.color:
+                        legal["captures"].append([current_row, current_column]) 
                     break
                 else:
-                    legal.append([current_row, current_column])
+                    legal["moves"].append([current_row, current_column])
                     current_row += vector[0]
                     current_column += vector[1]
 
@@ -122,7 +140,8 @@ class King(Piece):
         super().__init__(color, position, image)
 
     def legal_moves(self, board):
-        legal = []
+        legal = {"moves": [],
+                "captures": []}
         row, column = self.position
         positions = [[0, 1], [-1, 1], [1, 0], [-1, -1], [0, -1], [1, -1], [-1, 0], [1, 1]]
         for position in positions:
@@ -130,8 +149,11 @@ class King(Piece):
             current_column = column + position[1]
 
             if 0 <= current_row <= 7 and 0 <= current_column <= 7:
-                if board[current_row][current_column] == None:
-                    legal.append([current_row, current_column])
+                if board[current_row][current_column] != None:
+                    if board[current_row][current_column].color != self.color:
+                        legal['captures'].append([current_row, current_column])
+                else:
+                    legal['moves'].append([current_row, current_column])
         return legal
 
 class Pawn(Piece):
@@ -140,18 +162,31 @@ class Pawn(Piece):
         self.first_move = True
 
     def legal_moves(self, board):
-        legal = []
+        legal = {"moves": [],
+                "captures": []}
         row, column = self.position
         if self.color == "white":
             if board[row-1][column] == None:
-                legal.append([row-1, column])
+                legal["moves"].append([row-1, column])
                 if self.first_move and board[row-2][column] == None:
-                    legal.append([row-2, column])
+                    legal["moves"].append([row-2, column])
+
+            if board[row-1][column-1] != None and board[row-1][column-1].color != self.color:
+                    legal['captures'].append([row-1, column-1])
+            if board[row-1][column+1] != None and board[row-1][column+1].color != self.color:
+                    legal['captures'].append([row-1, column+1])
+        
         else:
             if board[row+1][column] == None:
-                legal.append([row+1, column])
+                legal["moves"].append([row+1, column])
                 if self.first_move and board[row+2][column] == None:
-                    legal.append([row+2, column])
+                    legal["moves"].append([row+2, column])
+
+            if board[row+1][column-1] != None and board[row+1][column-1].color != self.color:
+                    legal['captures'].append([row+1, column-1])
+            if board[row+1][column+1] != None and board[row+1][column+1].color != self.color:
+                    legal['captures'].append([row+1, column+1])
+
         return legal
     
     def move(self, board, move):
@@ -163,7 +198,8 @@ class Queen(Piece):
         super().__init__(color, position, image)
 
     def legal_moves(self, board):
-        legal = []
+        legal = {"moves": [],
+                "captures": []}
         row, column = self.position
         positions = [[-1, -1], [-1, 1], [1, -1], [1, 1], [0, 1], [0, -1], [-1, 0], [1, 0]]
         for vector in positions:
@@ -172,9 +208,11 @@ class Queen(Piece):
 
             while 0 <= current_row <= 7 and 0 <= current_column <= 7:
                 if board[current_row][current_column] != None:
+                    if board[current_row][current_column].color != self.color:
+                        legal["captures"].append([current_row, current_column]) 
                     break
                 else:
-                    legal.append([current_row, current_column])
+                    legal["moves"].append([current_row, current_column])
                     current_row += vector[0]
                     current_column += vector[1]
         
@@ -194,7 +232,6 @@ white_queen = pygame.image.load("imgs/white_queen.png")
 white_king = pygame.image.load("imgs/white_king.png")
 white_pawn = pygame.image.load("imgs/white_pawn.png")
 
-# More efficient method coming
 b_p = [Rook("black", [0, 0], black_rook), Knight("black", [0, 1], black_knight), 
        Bishop("black", [0, 2], black_bishop), Queen("black", [0, 3], black_queen), 
        King("black", [0, 4], black_king), Bishop("black", [0, 5], black_bishop), 
@@ -251,7 +288,7 @@ class Game:
         while run:
             pos = pygame.mouse.get_pos()
             clock.tick(60)
-            
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     run = False
@@ -268,14 +305,16 @@ class Game:
                                 piece.active = True
                                 active_piece = piece
                     
-                    if active_piece != 0 and self.mouse_to_square(pos) in active_piece.legal_moves(self.board):
-                        active_piece.move(self.board, self.mouse_to_square(pos))
-                        active_piece.active = False
-                        active_piece = 0
-                        if self.turn == w_p:
-                            self.turn = b_p
-                        else:
-                            self.turn = w_p
+                    if active_piece != 0:
+                        legals = active_piece.legal_moves(self.board)
+                        if self.mouse_to_square(pos) in legals["moves"]:
+                            active_piece.move(self.board, self.mouse_to_square(pos))
+                            active_piece.active = False
+                            active_piece = 0
+                            if self.turn == w_p:
+                                self.turn = b_p
+                            else:
+                                self.turn = w_p
 
             self.redraw_board(window)
 
