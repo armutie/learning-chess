@@ -29,6 +29,7 @@ class Piece:
         self.color = color
         self.image = image
         self.position = position
+        self.sim_pos = position
         self.rect = self.image.get_rect()
         self.active = False
         self.legal_image = pygame.image.load("imgs/legal_move.png")
@@ -54,15 +55,19 @@ class Piece:
             x = square[1] * TILE_SIZE
             window.blit(self.capture_image, (x, y))
 
-    def move(self, board, move):
+    def move(self, board, move, sim=False):
+        self.sim_pos = self.position
         current_position = self.position
         row, column = move
         print(row, column)
         board[row][column] = self
 
         board[current_position[0]][current_position[1]] = None
-        self.position = [row, column]
+        if not sim:
+            self.position = [row, column]
+        self.sim_pos = [row, column]
         show_board(board)
+        
         print("\n")
 
 
@@ -169,31 +174,27 @@ class Pawn(Piece):
                 "captures": []}
         row, column = self.position
         if self.color == "white":
-            if board[row-1][column] == None:
-                legal["moves"].append([row-1, column])
-                if self.first_move and board[row-2][column] == None:
-                    legal["moves"].append([row-2, column])
-
-            if (column-1) >= 0 and board[row-1][column-1] != None and board[row-1][column-1].color != self.color:
-                    legal['captures'].append([row-1, column-1])
-            if (column+1) <= 7 and board[row-1][column+1] != None and board[row-1][column+1].color != self.color:
-                    legal['captures'].append([row-1, column+1])
-        
+            path = row-1
+            first = row-2
         else:
-            if board[row+1][column] == None:
-                legal["moves"].append([row+1, column])
-                if self.first_move and board[row+2][column] == None:
-                    legal["moves"].append([row+2, column])
+            path = row+1
+            first = row+2
 
-            if board[row+1][column-1] != None and board[row+1][column-1].color != self.color:
-                    legal['captures'].append([row+1, column-1])
-            if board[row+1][column+1] != None and board[row+1][column+1].color != self.color:
-                    legal['captures'].append([row+1, column+1])
+        if 0 <= path <= 7:
+            if board[path][column] == None:
+                    legal["moves"].append([path, column])
+                    if self.first_move and board[first][column] == None:
+                        legal["moves"].append([first, column])
+
+            if (column-1) >= 0 and board[path][column-1] != None and board[path][column-1].color != self.color:
+                    legal['captures'].append([path, column-1])
+            if (column+1) <= 7 and board[path][column+1] != None and board[path][column+1].color != self.color:
+                    legal['captures'].append([path, column+1])
 
         return legal
     
-    def move(self, board, move):
-        super().move(board, move)
+    def move(self, board, move, sim=False):
+        super().move(board, move, sim=sim)
         self.first_move = False
 
 class Queen(Piece):
@@ -285,6 +286,32 @@ class Game:
         #if column % 64 != 0 and row % 0 != 0:
         return [row, column]
 
+    def in_check(self, board, color_pieces):
+        for piece in color_pieces:
+            if type(piece) == King:
+                king = piece
+
+        if color_pieces == w_p:
+            scan = b_p
+        else:
+            scan = w_p
+
+        for piece in scan:
+            potentials = piece.legal_moves(board)
+            if king.position in potentials['moves'] or king.position in potentials['captures']:
+                return True
+
+        return False
+
+    # DOES NOT WORK
+    def remove_checkable(self, legal_moves, piece):
+        sim = [row.copy() for row in self.board]
+        for each in legal_moves:
+            for move in legal_moves[each]:
+                piece.move(sim, move, sim=True)
+                if self.in_check(sim, self.turn):
+                    legal_moves[each].remove(move)
+
     def play(self, window):
         run = True
         active_piece = 0
@@ -303,13 +330,14 @@ class Game:
                                 active_piece.active = False
                                 piece.active = True
                                 active_piece = piece
-                                print('ACTIVE')
                             else:
                                 piece.active = True
                                 active_piece = piece
                     
                     if active_piece != 0:
+                        
                         legals = active_piece.legal_moves(self.board)
+                        # self.remove_checkable(legals, active_piece)
                         move = self.mouse_to_square(pos)
                         if move in legals["moves"] or move in legals["captures"]:
                             if move in legals['moves']:
@@ -328,6 +356,8 @@ class Game:
                                     self.turn = w_p
 
                             active_piece.move(self.board, self.mouse_to_square(pos))
+                            if self.in_check(self.board, self.turn):
+                                print("IN CHECK!")
                             active_piece.active = False
                             active_piece = 0
 
