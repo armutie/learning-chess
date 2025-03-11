@@ -3,6 +3,24 @@ import pygame
 TILE_SIZE = 64
 FPS = 60
 
+black_rook = pygame.image.load("imgs/black_rook.png")
+black_knight = pygame.image.load("imgs/black_knight.png")
+black_bishop = pygame.image.load("imgs/black_bishop.png")
+black_queen = pygame.image.load("imgs/black_queen.png")
+black_king = pygame.image.load("imgs/black_king.png")
+black_pawn = pygame.image.load("imgs/black_pawn.png")
+
+white_rook = pygame.image.load("imgs/white_rook.png")
+white_knight = pygame.image.load("imgs/white_knight.png")
+white_bishop = pygame.image.load("imgs/white_bishop.png")
+white_queen = pygame.image.load("imgs/white_queen.png")
+white_king = pygame.image.load("imgs/white_king.png")
+white_pawn = pygame.image.load("imgs/white_pawn.png")
+
+legal_image = pygame.image.load("imgs/legal_move.png")
+capture_image = pygame.image.load("imgs/capturable.png")
+
+
 # For testing purposes
 def show_board(board):
     for row in board:
@@ -29,11 +47,10 @@ class Piece:
         self.color = color
         self.image = image
         self.position = position
-        self.sim_pos = position
         self.rect = self.image.get_rect()
         self.active = False
-        self.legal_image = pygame.image.load("imgs/legal_move.png")
-        self.capture_image = pygame.image.load("imgs/capturable.png")
+        self.legal_image = legal_image
+        self.capture_image = capture_image
 
     def draw(self, window):
         row, column = self.position
@@ -55,15 +72,13 @@ class Piece:
             x = square[1] * TILE_SIZE
             window.blit(self.capture_image, (x, y))
 
-    def move(self, board, move, sim=False):
-        self.sim_pos = self.position
+    def move(self, board, move):
         current_position = self.position
         row, column = move
         board[row][column] = self
 
         board[current_position[0]][current_position[1]] = None
-        if not sim:
-            self.position = [row, column]
+        self.position = [row, column]
         self.sim_pos = [row, column]
         
         print("\n")
@@ -220,20 +235,6 @@ class Queen(Piece):
         
         return legal
 
-black_rook = pygame.image.load("imgs/black_rook.png")
-black_knight = pygame.image.load("imgs/black_knight.png")
-black_bishop = pygame.image.load("imgs/black_bishop.png")
-black_queen = pygame.image.load("imgs/black_queen.png")
-black_king = pygame.image.load("imgs/black_king.png")
-black_pawn = pygame.image.load("imgs/black_pawn.png")
-
-white_rook = pygame.image.load("imgs/white_rook.png")
-white_knight = pygame.image.load("imgs/white_knight.png")
-white_bishop = pygame.image.load("imgs/white_bishop.png")
-white_queen = pygame.image.load("imgs/white_queen.png")
-white_king = pygame.image.load("imgs/white_king.png")
-white_pawn = pygame.image.load("imgs/white_pawn.png")
-
 b_p = [Rook("black", [0, 0], black_rook), Knight("black", [0, 1], black_knight), 
        Bishop("black", [0, 2], black_bishop), Queen("black", [0, 3], black_queen), 
        King("black", [0, 4], black_king), Bishop("black", [0, 5], black_bishop), 
@@ -291,9 +292,6 @@ class Game:
 
     def validated_moves(self, board, side, moves, active):
         validated_moves = {'moves': [], 'captures': []}
-        for piece in side:
-            if type(piece) == King:
-                king = piece
 
         for move in moves['moves']:
             current_pos = active.position
@@ -340,6 +338,16 @@ class Game:
                 return True
             
         return False
+    
+    def checkmate(self, board, side):
+        if self.in_check(board, side):
+            for piece in side:
+                valid = self.validated_moves(board, side, piece.legal_moves(board), piece)
+                if valid['moves'] != [] or valid['captures'] != []:
+                    return False
+        
+            return True
+
 
     def play(self, window):
         run = True
@@ -377,8 +385,8 @@ class Game:
 
                             active_piece.move(self.board, move)
                             show_board(self.board)
-                            if self.in_check(self.board, self.turn):
-                                print("IN CHECK!")
+                            if self.checkmate(self.board, self.turn):
+                                run = False
                             active_piece.active = False
                             active_piece = 0
 
@@ -396,5 +404,3 @@ clock = pygame.time.Clock()
 x.play(WIN)
 
 pygame.quit()
-print(len(w_p))
-print(len(b_p))
