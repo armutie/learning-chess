@@ -369,22 +369,13 @@ class Game:
                         legals = self.validated_moves(self.board, self.turn, legals, active_piece)
                         move = self.mouse_to_square(pos)
                         if move in legals["moves"] or move in legals["captures"]:
-                            if move in legals['moves']:
-                                if self.turn == w_p:
-                                    self.turn = b_p
-                                else:
-                                    self.turn = w_p
-
-                            elif move in legals["captures"]:
+                            if move in legals["captures"]:
                                 captured = self.board[move[0]][move[1]]
-                                if self.turn == w_p:
-                                    b_p.remove(captured)
-                                    self.turn = b_p
-                                else:
-                                    w_p.remove(captured)
-                                    self.turn = w_p
+                                self.opposite(self.turn).remove(captured)
+                            
+                            self.turn = self.opposite(self.turn)
 
-                            active_piece.move(self.board, self.mouse_to_square(pos))
+                            active_piece.move(self.board, move)
                             show_board(self.board)
                             if self.in_check(self.board, self.turn):
                                 print("IN CHECK!")
