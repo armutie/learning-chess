@@ -59,14 +59,12 @@ class Piece:
         self.sim_pos = self.position
         current_position = self.position
         row, column = move
-        print(row, column)
         board[row][column] = self
 
         board[current_position[0]][current_position[1]] = None
         if not sim:
             self.position = [row, column]
         self.sim_pos = [row, column]
-        show_board(board)
         
         print("\n")
 
@@ -274,10 +272,15 @@ class Game:
                     element.draw(window)
 
                     if element.active:
-                        moves = element.legal_moves(self.board)
-                        element.draw_legal(window, moves)
+                        valid_moves = self.validated_moves(self.board, self.turn, element.legal_moves(self.board), element)
+                        element.draw_legal(window, valid_moves)
 
         pygame.display.update()
+
+    def opposite(self, side):
+        if side == w_p:
+            return b_p
+        return w_p
 
     def mouse_to_square(self, pos):
         x, y = pos
@@ -286,31 +289,57 @@ class Game:
         #if column % 64 != 0 and row % 0 != 0:
         return [row, column]
 
-    def in_check(self, board, color_pieces):
-        for piece in color_pieces:
+    def validated_moves(self, board, side, moves, active):
+        validated_moves = {'moves': [], 'captures': []}
+        for piece in side:
             if type(piece) == King:
                 king = piece
 
-        if color_pieces == w_p:
-            scan = b_p
-        else:
-            scan = w_p
+        for move in moves['moves']:
+            current_pos = active.position
+            if type(active) == Pawn:
+                saved_first = active.first_move
+            active.move(board, move)
+            if not self.in_check(board, side):
+                validated_moves['moves'].append(move)
 
-        for piece in scan:
-            potentials = piece.legal_moves(board)
-            if king.position in potentials['moves'] or king.position in potentials['captures']:
+            active.move(board, current_pos)
+            if type(active) == Pawn:
+                active.first_move = saved_first
+
+        for move in moves['captures']:
+            current_pos = active.position
+            to_be_captured = board[move[0]][move[1]]
+            if type(active) == Pawn:
+                saved_first = active.first_move
+
+            self.opposite(side).remove(to_be_captured)
+            active.move(board, move)
+            if not self.in_check(board, side):
+                validated_moves['captures'].append(move)
+
+            active.move(board, current_pos)
+            self.opposite(side).append(to_be_captured)
+            board[move[0]][move[1]] = to_be_captured
+
+            if type(active) == Pawn:
+                active.first_move = saved_first
+
+        return validated_moves
+    
+    def in_check(self, board, side):
+        for piece in side:
+            if type(piece) == King:
+                king = piece
+
+        opposite_side = self.opposite(side)
+
+        for piece in opposite_side:
+            all_potential_moves = piece.legal_moves(board)
+            if king.position in all_potential_moves['moves'] or king.position in all_potential_moves['captures']:
                 return True
-
+            
         return False
-
-    # DOES NOT WORK
-    def remove_checkable(self, legal_moves, piece):
-        sim = [row.copy() for row in self.board]
-        for each in legal_moves:
-            for move in legal_moves[each]:
-                piece.move(sim, move, sim=True)
-                if self.in_check(sim, self.turn):
-                    legal_moves[each].remove(move)
 
     def play(self, window):
         run = True
@@ -337,7 +366,7 @@ class Game:
                     if active_piece != 0:
                         
                         legals = active_piece.legal_moves(self.board)
-                        # self.remove_checkable(legals, active_piece)
+                        legals = self.validated_moves(self.board, self.turn, legals, active_piece)
                         move = self.mouse_to_square(pos)
                         if move in legals["moves"] or move in legals["captures"]:
                             if move in legals['moves']:
@@ -356,6 +385,7 @@ class Game:
                                     self.turn = w_p
 
                             active_piece.move(self.board, self.mouse_to_square(pos))
+                            show_board(self.board)
                             if self.in_check(self.board, self.turn):
                                 print("IN CHECK!")
                             active_piece.active = False
