@@ -41,6 +41,7 @@ def show_board(board):
             else:
                 output.append('.')
         print(output)
+    print("\n")
 
 class Piece:
     def __init__(self, color, position, image):
@@ -51,6 +52,7 @@ class Piece:
         self.active = False
         self.legal_image = legal_image
         self.capture_image = capture_image
+        self.first_move = True
 
     def draw(self, window):
         row, column = self.position
@@ -79,10 +81,7 @@ class Piece:
 
         board[current_position[0]][current_position[1]] = None
         self.position = [row, column]
-        self.sim_pos = [row, column]
-        
-        print("\n")
-
+        self.first_move = False
 
 class Rook(Piece):
     def __init__(self, color, position, image):
@@ -175,12 +174,34 @@ class King(Piece):
                         legal['captures'].append([current_row, current_column])
                 else:
                     legal['moves'].append([current_row, current_column])
+
+        if self.first_move and board[row][column+1] == None and board[row][column+2] == None:
+            right_rook = board[row][column+3]
+            if type(right_rook) == Rook and right_rook.first_move:
+                legal['moves'].append([row, column+2])
+
+        if self.first_move and board[row][column-1] == None and board[row][column-2] == None and board[row][column-3] == None:
+            left_rook = board[row][column-4]
+            if type(left_rook) == Rook and left_rook.first_move:
+                legal['moves'].append([row, column-2])
+
         return legal
+    
+    def move(self, board, move):
+        row_old, column_old = self.position
+        super().move(board, move)
+        row, column = self.position
+        if column - column_old == 2:
+            right_rook = board[row][column+1]
+            right_rook.move(board, [row, column-1])
+        elif column - column_old == -2:
+            left_rook = board[row][column-2]
+            left_rook.move(board, [row, column+1])
 
 class Pawn(Piece):
     def __init__(self, color, position, image):
         super().__init__(color, position, image)
-        self.first_move = True
+        self.en_passant_vulnerability = False
 
     def legal_moves(self, board):
         legal = {"moves": [],
@@ -199,16 +220,21 @@ class Pawn(Piece):
                     if self.first_move and board[first][column] == None:
                         legal["moves"].append([first, column])
 
-            if (column-1) >= 0 and board[path][column-1] != None and board[path][column-1].color != self.color:
-                    legal['captures'].append([path, column-1])
-            if (column+1) <= 7 and board[path][column+1] != None and board[path][column+1].color != self.color:
-                    legal['captures'].append([path, column+1])
+            diagonals = [column-1, column+1]
+            for diagonal in diagonals:
+                if 0 <= (diagonal) <= 7 and board[path][diagonal] != None and board[path][diagonal].color != self.color:
+                        legal['captures'].append([path, diagonal])
 
         return legal
     
-    def move(self, board, move, sim=False):
-        super().move(board, move, sim=sim)
-        self.first_move = False
+    # def move(self, board, move):
+    #     before = self.first_move
+    #     super().move(board, move)
+    #     after = self.first_move
+    #     if before != after:
+    #         self.en_passant_vulnerability = True
+    #     else:
+    #         self.en_passant_vulnerability = False
 
 class Queen(Piece):
     def __init__(self, color, position, image):
@@ -295,21 +321,37 @@ class Game:
 
         for move in moves['moves']:
             current_pos = active.position
-            if type(active) == Pawn:
-                saved_first = active.first_move
-            active.move(board, move)
-            if not self.in_check(board, side):
-                validated_moves['moves'].append(move)
-
-            active.move(board, current_pos)
-            if type(active) == Pawn:
-                active.first_move = saved_first
+            saved_first = active.first_move
+            if type(active) != King or (type(active) == King and abs(move[1]-current_pos[1]) != 2):
+                active.move(board, move)
+                if not self.in_check(board, side):
+                    validated_moves['moves'].append(move)
+                active.move(board, current_pos)
+            else:
+                if move[1] == current_pos[1]+2:
+                    if not self.in_check(board, side):
+                        active.move(board, [current_pos[0], current_pos[1]+1])
+                        if not self.in_check(board, side):
+                            active.move(board, [current_pos[0], current_pos[1]+2])
+                            if not self.in_check(board, side):
+                                validated_moves['moves'].append(move)
+                    for i in range(2):
+                        active.move(board, [current_pos[0], 5-i])
+                else:
+                    if not self.in_check(board, side):
+                        active.move(board, [current_pos[0], current_pos[1]-1])
+                        if not self.in_check(board, side):
+                            active.move(board, [current_pos[0], current_pos[1]-2])
+                            if not self.in_check(board, side):
+                                validated_moves['moves'].append(move)
+                    for i in range(2):
+                        active.move(board, [current_pos[0], 3+i])
+            active.first_move = saved_first
 
         for move in moves['captures']:
             current_pos = active.position
             to_be_captured = board[move[0]][move[1]]
-            if type(active) == Pawn:
-                saved_first = active.first_move
+            saved_first = active.first_move
 
             self.opposite(side).remove(to_be_captured)
             active.move(board, move)
@@ -320,8 +362,7 @@ class Game:
             self.opposite(side).append(to_be_captured)
             board[move[0]][move[1]] = to_be_captured
 
-            if type(active) == Pawn:
-                active.first_move = saved_first
+            active.first_move = saved_first
 
         return validated_moves
     
@@ -339,14 +380,36 @@ class Game:
             
         return False
     
-    def checkmate(self, board, side):
-        if self.in_check(board, side):
-            for piece in side:
-                valid = self.validated_moves(board, side, piece.legal_moves(board), piece)
-                if valid['moves'] != [] or valid['captures'] != []:
-                    return False
+    def pawn_promotion(self, board, side, pawn, promote_to):
+        if side == w_p:
+            color = "white"
+        else: 
+            color = "black"
+        coords = pawn.position
+        side.remove(pawn)
+        if promote_to.lower() == "queen":
+            new_piece = Queen(color, coords, pygame.image.load(f"imgs/{color}_queen.png"))
+        elif promote_to.lower() == "bishop":
+            new_piece = Bishop(color, coords, pygame.image.load(f"imgs/{color}_bishop.png"))
+        elif promote_to.lower() == "knight":
+            new_piece = Knight(color, coords, pygame.image.load(f"imgs/{color}_knight.png"))
+        elif promote_to.lower() == "rook":
+            new_piece = Rook(color, coords, pygame.image.load(f"imgs/{color}_rook.png"))
         
-            return True
+        side.append(new_piece)
+        board[coords[0]][coords[1]] = new_piece
+        
+    
+    def checkmate(self, board, side):
+        for piece in side:
+            valid = self.validated_moves(board, side, piece.legal_moves(board), piece)
+            if valid['moves'] != [] or valid['captures'] != []:
+                return 0
+            
+        if self.in_check(board, side):
+            return 1
+        else:
+            return 0.5
 
 
     def play(self, window):
@@ -365,11 +428,8 @@ class Game:
                         if piece.rect.collidepoint(pos):
                             if active_piece != 0:
                                 active_piece.active = False
-                                piece.active = True
-                                active_piece = piece
-                            else:
-                                piece.active = True
-                                active_piece = piece
+                            piece.active = True
+                            active_piece = piece
                     
                     if active_piece != 0:
                         
@@ -382,13 +442,23 @@ class Game:
                                 self.opposite(self.turn).remove(captured)
                             
                             self.turn = self.opposite(self.turn)
-
                             active_piece.move(self.board, move)
+
+                            if type(active_piece) == Pawn and (active_piece.position[0] == 0 or active_piece.position[0] == 7):
+                                choice = input("What would you like to promote to? ")
+                                self.pawn_promotion(self.board, self.opposite(self.turn), active_piece, choice)
+
                             show_board(self.board)
-                            if self.checkmate(self.board, self.turn):
-                                run = False
                             active_piece.active = False
                             active_piece = 0
+
+                            game_state = self.checkmate(self.board, self.turn)
+                            if game_state == 1:
+                                run = False
+                                print(f"{self.opposite(self.turn)} wins!")
+                            elif game_state == 0.5:
+                                run = False
+                                print("Stalemate.")
 
             self.redraw_board(window)
 
