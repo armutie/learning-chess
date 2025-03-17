@@ -28,6 +28,9 @@ white_queen = pygame.image.load("imgs/white_queen.png")
 white_king = pygame.image.load("imgs/white_king.png")
 white_pawn = pygame.image.load("imgs/white_pawn.png")
 
+promotion_white = pygame.image.load("imgs/promotion_white.png")
+promotion_black = pygame.image.load("imgs/promotion_black.png")
+
 # For testing purposes
 def show_board(board):
     for row in board:
@@ -64,8 +67,6 @@ w_p = [Rook("white", [7, 0], white_rook), Knight("white", [7, 1], white_knight),
 for row in range(8):
     w_p.append(Pawn("white", [6, row], white_pawn))
 
-types = [Rook, Knight, Bishop, Queen, King, Pawn]
-
 class Game:
     board = [b_p[:8], 
              b_p[8:]
@@ -75,24 +76,10 @@ class Game:
     board.append(w_p[8:])
     board.append(w_p[:8])
 
-    def __init__(self):
+    def __init__(self, window):
         self.turn = w_p
-        self.image = pygame.image.load("imgs/Board.png")
         self.last_move = None
-
-    def redraw_board(self, window):
-        window.fill((255, 255, 200))
-        window.blit(self.image, (0, 0))
-        for row in self.board:
-            for element in row:
-                if type(element) in types:
-                    element.draw(window)
-
-                    if element.active:
-                        valid_moves = self.validated_moves(self.board, self.turn, element.legal_moves(self.board, previous_move=self.last_move), element)
-                        element.draw_legal(window, valid_moves)
-
-        pygame.display.update()
+        self.renderer = Renderer(window)
 
     def opposite(self, side):
         if side == w_p:
@@ -183,6 +170,7 @@ class Game:
         else: 
             color = "black"
         coords = pawn.position
+
         side.remove(pawn)
         if promote_to.lower() == "queen":
             new_piece = Queen(color, coords, pygame.image.load(f"imgs/{color}_queen.png"))
@@ -192,9 +180,10 @@ class Game:
             new_piece = Knight(color, coords, pygame.image.load(f"imgs/{color}_knight.png"))
         elif promote_to.lower() == "rook":
             new_piece = Rook(color, coords, pygame.image.load(f"imgs/{color}_rook.png"))
-        
+            
         side.append(new_piece)
         board[coords[0]][coords[1]] = new_piece
+                          
         
     
     def checkmate(self, board, side):
@@ -209,11 +198,15 @@ class Game:
             return 0.5
 
 
-    def play(self, window):
+    def play(self):
         run = True
         active_piece = 0
+        legals = {"moves": [], "captures": []}
+        promoting_pawn = None
+        promote_coords = None
         while run:
             pos = pygame.mouse.get_pos()
+            move = None
             clock.tick(FPS)
 
             for event in pygame.event.get():
@@ -221,54 +214,107 @@ class Game:
                     run = False
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     print(pos)
-                    for piece in self.turn:
-                        if piece.rect.collidepoint(pos):
-                            if active_piece != 0:
-                                active_piece.active = False
-                            piece.active = True
-                            active_piece = piece
+                    move = self.mouse_to_square(pos)
+                    if promoting_pawn == None:
+                        for piece in self.turn:
+                            if piece.rect.collidepoint(pos):
+                                if active_piece != 0:
+                                    active_piece.active = False
+                                piece.active = True
+                                active_piece = piece
+                    else:
+                        pos_x, pos_y = pos
+                        final_choice = None
+                        if promote_coords[0] <= pos_x <= promote_coords[0] + TILE_SIZE:
+                            starting_y = promote_coords[1]
+                            choices = ["queen", "rook", "bishop", "knight"]
+                            final_choice = None
+                            for choice in choices:
+                                if starting_y <= pos_y <= starting_y + TILE_SIZE:
+                                    final_choice = choice
+                                    break
+                                starting_y += TILE_SIZE
+
+                        if final_choice != None:
+                            self.pawn_promotion(self.board, self.opposite(self.turn), promoting_pawn, final_choice)
+                            promoting_pawn = None
                     
-                    if active_piece != 0:
-                        
-                        legals = active_piece.legal_moves(self.board, previous_move=self.last_move)
-                        legals = self.validated_moves(self.board, self.turn, legals, active_piece)
-                        move = self.mouse_to_square(pos)
-                        if move in legals["moves"] or move in legals["captures"]:
-                            if move in legals["captures"]:
-                                captured = self.board[move[0]][move[1]]
-                                captured_pos = move
-                                if captured == None:
-                                    captured_pos = self.last_move[2]
-                                    captured = self.board[captured_pos[0]][captured_pos[1]]
-                                self.opposite(self.turn).remove(captured)
-                                self.board[captured_pos[0]][captured_pos[1]] = None
-                            
-                            previous_pos = active_piece.position
-                            self.turn = self.opposite(self.turn)
-                            active_piece.move(self.board, move)
-                            self.last_move = (active_piece, previous_pos, active_piece.position)
+            if active_piece != 0 and move != None and promoting_pawn == None:
+                legals = active_piece.legal_moves(self.board, previous_move=self.last_move)
+                legals = self.validated_moves(self.board, self.turn, legals, active_piece)
+                
+                if move in legals["moves"] or move in legals["captures"]:
+                    if move in legals["captures"]:
+                        captured = self.board[move[0]][move[1]]
+                        captured_pos = move
+                        if captured == None:
+                            captured_pos = self.last_move[2]
+                            captured = self.board[captured_pos[0]][captured_pos[1]]
+                        self.opposite(self.turn).remove(captured)
+                        self.board[captured_pos[0]][captured_pos[1]] = None
+                    
+                    previous_pos = active_piece.position
+                    self.turn = self.opposite(self.turn)
+                    active_piece.move(self.board, move)
+                    self.last_move = (active_piece, previous_pos, active_piece.position)
 
-                            if type(active_piece) == Pawn and (active_piece.position[0] == 0 or active_piece.position[0] == 7):
-                                choice = input("What would you like to promote to? ")
-                                self.pawn_promotion(self.board, self.opposite(self.turn), active_piece, choice)
+                    if type(active_piece) == Pawn and (active_piece.position[0] == 0 or active_piece.position[0] == 7):
+                            promoting_pawn = active_piece
 
-                            show_board(self.board)
-                            active_piece.active = False
-                            active_piece = 0
+                    show_board(self.board)
+                    active_piece.active = False
+                    active_piece = 0
 
-                            game_state = self.checkmate(self.board, self.turn)
-                            if game_state == 1:
-                                run = False
-                                print(f"{self.opposite(self.turn)} wins!")
-                            elif game_state == 0.5:
-                                run = False
-                                print("Stalemate.")
-
-            self.redraw_board(window)
+            game_state = self.checkmate(self.board, self.turn)
+            if game_state == 1:
+                run = False
+                print(f"{self.opposite(self.turn)} wins!")
+            elif game_state == 0.5:
+                run = False
+                print("Stalemate.")
 
 
-x = Game()
+            self.renderer.redraw_board(self.board, active_piece, legals)
+            if promoting_pawn != None:
+                promote_coords = self.renderer.render_promotion(promoting_pawn)
 
-x.play(WIN)
+            pygame.display.update()
+
+class Renderer:
+    def __init__(self, window):
+        self.window = window
+        self.board_image = pygame.image.load("imgs/Board.png")
+
+    def redraw_board(self, board, active, active_moves,):
+        self.window.fill((255, 255, 200))
+        self.window.blit(self.board_image, (0, 0))
+        for row in board:
+            for element in row:
+                if element != None:
+                    element.draw(self.window)
+
+                    if element == active:
+                        element.draw_legal(self.window, active_moves)
+        
+    def render_promotion(self, promoting_pawn):
+        if promoting_pawn != None:
+            if promoting_pawn.position[1] == 7:
+                promote_image_coords = [promoting_pawn.rect.x - TILE_SIZE/2, promoting_pawn.rect.y + TILE_SIZE/2]
+            else:
+                promote_image_coords = [promoting_pawn.rect.x + TILE_SIZE/2, promoting_pawn.rect.y + TILE_SIZE/2]
+
+            if promoting_pawn.color == "black":
+                promote_image_coords[1] -= TILE_SIZE * 4
+                self.window.blit(promotion_black, promote_image_coords)
+            else:
+                self.window.blit(promotion_white, promote_image_coords)
+
+
+        if promote_image_coords != None:
+            return promote_image_coords
+
+x = Game(WIN)
+
+x.play()
 
 pygame.quit()
