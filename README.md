@@ -17,7 +17,7 @@ A classic game of Chess implemented in Python using the Pygame library. This pro
 *   **Turn-Based Gameplay:** Alternating turns for white and black players.
 *   **Legal Move Highlighting:** When a piece is selected, its legal moves and potential captures are visually indicated on the board.
 
-## Screenshot / GIF
+## Screenshot Mid-Game
 
 <img width="386" alt="Image" src="https://github.com/user-attachments/assets/a583dbf7-8140-46ba-a42b-d23f102ae1a3" />
 
